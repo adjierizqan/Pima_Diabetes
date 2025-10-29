@@ -7,6 +7,31 @@ import joblib
 import pandas as pd
 from flask import Flask, flash, redirect, render_template, request, url_for
 
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class ZeroMedianImputer(BaseEstimator, TransformerMixin):
+    def __init__(self, columns=None):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        import pandas as pd
+        if self.columns is None:
+            self.columns = X.columns
+        self.medians_ = X[self.columns].replace(0, pd.NA).median()
+        return self
+
+    def transform(self, X):
+        import pandas as pd
+        X_copy = X.copy()
+        for col in self.columns:
+            X_copy[col] = X_copy[col].replace(0, self.medians_[col])
+        return X_copy
+
+    def get_feature_names_out(self, input_features=None):
+        if input_features is None:
+            return self.columns
+        return input_features
+
 FEATURE_NAMES = [
     "Pregnancies",
     "Glucose",

@@ -73,41 +73,30 @@ N_JOBS = -1
 # Utility classes and functions
 # ---------------------------------------------------------------------------
 
+from sklearn.base import BaseEstimator, TransformerMixin
+import pandas as pd
+
 class ZeroMedianImputer(BaseEstimator, TransformerMixin):
-    """Replace zero values in specified columns with the median of non-zero values."""
+    def __init__(self, columns=None):
+        self.columns = columns
 
-    def __init__(self, columns: Iterable[str]):
-        self.columns = list(columns)
-
-    def fit(self, X: pd.DataFrame, y=None):  # noqa: D401 - sklearn API
-        if isinstance(X, pd.DataFrame):
-            data = X.copy()
-            self.feature_names_in_ = list(data.columns)
-        else:
-            data = pd.DataFrame(X, columns=getattr(self, "feature_names_in_", self.columns))
-            self.feature_names_in_ = list(data.columns)
-
-        self.medians_ = {}
-        for column in self.columns:
-            if column not in data:
-                raise ValueError(f"Column '{column}' not found in input data during fitting.")
-            series = data[column].replace(0, np.nan)
-            median = series.median()
-            if np.isnan(median):
-                median = 0.0
-            self.medians_[column] = median
+    def fit(self, X, y=None):
+        if self.columns is None:
+            self.columns = X.columns
+        self.medians_ = X[self.columns].replace(0, pd.NA).median()
         return self
 
-    def transform(self, X: pd.DataFrame):  # noqa: D401 - sklearn API
-        check_is_fitted(self, "medians_")
-        if isinstance(X, pd.DataFrame):
-            data = X.copy()
-        else:
-            data = pd.DataFrame(X, columns=self.feature_names_in_)
+    def transform(self, X):
+        X_copy = X.copy()
+        for col in self.columns:
+            X_copy[col] = X_copy[col].replace(0, self.medians_[col])
+        return X_copy
 
-        for column, median in self.medians_.items():
-            data[column] = data[column].replace(0, median)
-        return data
+    def get_feature_names_out(self, input_features=None):
+        # Return original feature names (tidak diubah)
+        if input_features is None:
+            return self.columns
+        return input_features
 
 
 @dataclass
