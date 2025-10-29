@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.DS_Store
+reports/*
+!reports/
+!reports/.gitkeep
+data/processed_*.csv

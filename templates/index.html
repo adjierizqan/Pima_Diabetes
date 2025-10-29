@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pima Diabetes Predictor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HG5kyZ63G9/X+3iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">Pima Diabetes Predictor</a>
+    </div>
+</nav>
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        <div class="alert alert-warning">{{ messages[0] }}</div>
+                    {% endif %}
+                {% endwith %}
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h1 class="card-title h3 mb-4 text-center">Enter Patient Information</h1>
+                        <form action="{{ url_for('predict') }}" method="post" id="prediction-form">
+                            <div class="row g-3">
+                                {% for feature in feature_names %}
+                                <div class="col-md-6">
+                                    <label for="{{ feature }}" class="form-label">{{ feature.replace('DiabetesPedigreeFunction', 'Diabetes Pedigree Function') }}</label>
+                                    <input type="number" step="0.01" class="form-control" id="{{ feature }}" name="{{ feature }}" value="{{ values[feature] }}" required>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 justify-content-between mt-4">
+                                <button type="submit" class="btn btn-primary">Predict</button>
+                                <button type="button" class="btn btn-outline-secondary" id="sample-btn">Try Sample Data</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<footer class="py-3 text-center bg-white border-top">
+    <div class="container">
+        <small class="text-muted">Built with ❤️ using Flask, scikit-learn, and XGBoost.</small>
+    </div>
+</footer>
+<script>
+    const sampleData = {
+        "Pregnancies": 2,
+        "Glucose": 130,
+        "BloodPressure": 70,
+        "SkinThickness": 30,
+        "Insulin": 100,
+        "BMI": 32.5,
+        "DiabetesPedigreeFunction": 0.5,
+        "Age": 45
+    };
+    document.getElementById('sample-btn').addEventListener('click', () => {
+        Object.entries(sampleData).forEach(([key, value]) => {
+            const input = document.getElementById(key);
+            if (input) {
+                input.value = value;
+            }
+        });
+    });
+</script>
+</body>
+</html>
