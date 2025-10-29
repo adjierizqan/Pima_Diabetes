@@ -4,72 +4,115 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pima Diabetes Predictor</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HG5kyZ63G9/X+3iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <meta name="description" content="Interactive Pima Indian Diabetes prediction tool powered by machine learning.">
+    <meta property="og:title" content="Pima Diabetes Prediction App">
+    <meta property="og:description" content="Predict the likelihood of diabetes with a friendly, modern interface.">
+    <meta property="og:type" content="website">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle fill='%230d6efd' cx='32' cy='32' r='32'/%3E%3Cpath fill='%23fff' d='M34.4 16.6c-.8-1.1-2.6-1.1-3.4 0l-14 19.7c-.9 1.3.1 3.1 1.7 3.1h7v8c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-8h7c1.6 0 2.6-1.8 1.7-3.1z'/%3E%3C/svg%3E">
+    <title>Pima Diabetes Prediction App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2Pkf4jV3A4Jr5v0fes2wE8AZ5bG1FQ5J5d7+iC9jVrum1+Fi7c+7qlC9g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
-    <div class="container">
-        <a class="navbar-brand fw-bold" href="/">Pima Diabetes Predictor</a>
-    </div>
-</nav>
-<section class="py-5 bg-light">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        <div class="alert alert-warning">{{ messages[0] }}</div>
-                    {% endif %}
-                {% endwith %}
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h1 class="card-title h3 mb-4 text-center">Enter Patient Information</h1>
-                        <form action="{{ url_for('predict') }}" method="post" id="prediction-form">
-                            <div class="row g-3">
+<body class="bg-surface text-body">
+    <div class="background-gradient"></div>
+    <nav class="navbar navbar-expand-lg navbar-dark glass-nav py-3">
+        <div class="container d-flex align-items-center justify-content-between">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>Pima Diabetes Predictor</span>
+            </a>
+            <a class="btn btn-outline-light btn-sm d-none d-md-inline-flex align-items-center gap-2" href="#predict-card">
+                <i class="fa-solid fa-chart-line"></i>
+                Start Predicting
+            </a>
+        </div>
+    </nav>
+
+    <header class="hero py-5 py-lg-5 text-center text-white">
+        <div class="container position-relative">
+            <div class="hero-card mx-auto reveal">
+                <div class="hero-icon mb-3">
+                    <i class="fa-solid fa-stethoscope"></i>
+                </div>
+                <h1 class="display-5 fw-semibold mb-3">Understand Diabetes Risk with Confidence</h1>
+                <p class="lead mb-0">Enter your health indicators and instantly receive a machine learning-powered prediction enhanced with clear insights.</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="py-4 py-lg-5">
+        <div class="container position-relative">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="alert alert-warning alert-glass shadow reveal" role="alert">
+                        <i class="fa-solid fa-circle-info me-2"></i>{{ messages[0] }}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            <div class="row justify-content-center">
+                <div class="col-12 col-lg-10 col-xl-8">
+                    {% set placeholders = {
+                        'Pregnancies': 'Number of pregnancies',
+                        'Glucose': 'Glucose level (mg/dL)',
+                        'BloodPressure': 'Blood pressure (mm Hg)',
+                        'SkinThickness': 'Skin thickness (mm)',
+                        'Insulin': 'Insulin level (IU/mL)',
+                        'BMI': 'Body mass index',
+                        'DiabetesPedigreeFunction': 'Diabetes pedigree function',
+                        'Age': 'Age in years'
+                    } %}
+                    <section class="glass-card p-4 p-lg-5 shadow-xl reveal" id="predict-card">
+                        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+                            <div>
+                                <p class="badge rounded-pill text-bg-primary-soft mb-2"><i class="fa-solid fa-star me-2"></i>Smart Prediction</p>
+                                <h2 class="h3 fw-semibold mb-2">Patient Health Profile</h2>
+                                <p class="text-muted mb-0">Provide measurements below to evaluate the likelihood of diabetes.</p>
+                            </div>
+                            <button type="button" class="btn btn-light btn-soft" id="sample-btn">
+                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Try Sample Data
+                            </button>
+                        </div>
+                        <form action="{{ url_for('predict') }}" method="post" id="prediction-form" novalidate>
+                            <div class="row g-4">
                                 {% for feature in feature_names %}
-                                <div class="col-md-6">
-                                    <label for="{{ feature }}" class="form-label">{{ feature.replace('DiabetesPedigreeFunction', 'Diabetes Pedigree Function') }}</label>
-                                    <input type="number" step="0.01" class="form-control" id="{{ feature }}" name="{{ feature }}" value="{{ values[feature] }}" required>
+                                <div class="col-12 col-md-6">
+                                    <div class="input-wrapper">
+                                        <label for="{{ feature }}" class="form-label">{{ feature.replace('DiabetesPedigreeFunction', 'Diabetes Pedigree Function') }}</label>
+                                        <div class="input-group input-group-lg">
+                                            <span class="input-group-text"><i class="fa-solid {{ 'fa-baby' if feature == 'Pregnancies' else 'fa-droplet' if feature == 'Glucose' else 'fa-heart-pulse' if feature == 'BloodPressure' else 'fa-ruler-vertical' if feature == 'SkinThickness' else 'fa-syringe' if feature == 'Insulin' else 'fa-weight-scale' if feature == 'BMI' else 'fa-dna' if feature == 'DiabetesPedigreeFunction' else 'fa-calendar-day' }}"></i></span>
+                                            <input type="number" step="0.01" min="0" class="form-control" id="{{ feature }}" name="{{ feature }}" value="{{ values[feature] }}" placeholder="{{ placeholders[feature] }}" required>
+                                        </div>
+                                    </div>
                                 </div>
                                 {% endfor %}
                             </div>
-                            <div class="d-flex flex-wrap gap-2 justify-content-between mt-4">
-                                <button type="submit" class="btn btn-primary">Predict</button>
-                                <button type="button" class="btn btn-outline-secondary" id="sample-btn">Try Sample Data</button>
+                            <div class="d-grid d-sm-flex justify-content-sm-end gap-3 mt-4">
+                                <button type="reset" class="btn btn-ghost">Clear</button>
+                                <button type="submit" class="btn btn-primary btn-lg px-4">
+                                    <span class="btn-glow"></span>
+                                    <i class="fa-solid fa-arrow-trend-up me-2"></i>
+                                    Predict Now
+                                </button>
                             </div>
                         </form>
-                    </div>
+                    </section>
                 </div>
             </div>
         </div>
-    </div>
-</section>
-<footer class="py-3 text-center bg-white border-top">
-    <div class="container">
-        <small class="text-muted">Built with ❤️ using Flask, scikit-learn, and XGBoost.</small>
-    </div>
-</footer>
-<script>
-    const sampleData = {
-        "Pregnancies": 2,
-        "Glucose": 130,
-        "BloodPressure": 70,
-        "SkinThickness": 30,
-        "Insulin": 100,
-        "BMI": 32.5,
-        "DiabetesPedigreeFunction": 0.5,
-        "Age": 45
-    };
-    document.getElementById('sample-btn').addEventListener('click', () => {
-        Object.entries(sampleData).forEach(([key, value]) => {
-            const input = document.getElementById(key);
-            if (input) {
-                input.value = value;
-            }
-        });
-    });
-</script>
+    </main>
+
+    <footer class="py-4 text-center text-muted small">
+        <div class="container">
+            Developed by adjierizqan ✨
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha512-E7h3fm6Y1Ry2wzB2EqFG5RZ7s27ZIz+fwFQ9TnT0PgQBJ38qRAjPR9UCeFVLtZL1NVr7Di1urN6UNNfGStccKA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

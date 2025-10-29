@@ -4,53 +4,102 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Results page for the Pima Diabetes Prediction App.">
+    <meta property="og:title" content="Diabetes Prediction Result">
+    <meta property="og:description" content="Review the prediction outcome and explore your submitted health indicators.">
+    <meta property="og:type" content="website">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle fill='%230d6efd' cx='32' cy='32' r='32'/%3E%3Cpath fill='%23fff' d='M34.4 16.6c-.8-1.1-2.6-1.1-3.4 0l-14 19.7c-.9 1.3.1 3.1 1.7 3.1h7v8c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-8h7c1.6 0 2.6-1.8 1.7-3.1z'/%3E%3C/svg%3E">
     <title>Prediction Result</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HG5kyZ63G9/X+3iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2Pkf4jV3A4Jr5v0fes2wE8AZ5bG1FQ5J5d7+iC9jVrum1+Fi7c+7qlC9g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
-    <div class="container">
-        <a class="navbar-brand fw-bold" href="/">Pima Diabetes Predictor</a>
-    </div>
-</nav>
-<section class="py-5 bg-light">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-6">
-                <div class="card shadow-sm">
-                    <div class="card-body text-center">
-                        <h1 class="h3 mb-4">Prediction Result</h1>
-                        <div class="alert alert-{{ indicator_class }}" role="alert">
-                            <strong>{{ prediction }}</strong>
-                        </div>
-                        <p class="lead">Probability of diabetes: <strong>{{ probability }}</strong></p>
-                        <a href="{{ url_for('index') }}" class="btn btn-outline-primary mt-3">Predict Again</a>
-                    </div>
-                </div>
-                <div class="card shadow-sm mt-4">
-                    <div class="card-body">
-                        <h2 class="h5 mb-3">Submitted Values</h2>
-                        <div class="row">
-                            {% for feature in feature_names %}
-                            <div class="col-sm-6 mb-2">
-                                <div class="border rounded p-2 bg-light">
-                                    <small class="text-muted">{{ feature }}</small>
-                                    <div class="fw-semibold">{{ values[feature] }}</div>
-                                </div>
+<body class="bg-surface text-body">
+    <div class="background-gradient"></div>
+    <nav class="navbar navbar-expand-lg navbar-dark glass-nav py-3">
+        <div class="container d-flex align-items-center justify-content-between">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>Pima Diabetes Predictor</span>
+            </a>
+            <a class="btn btn-outline-light btn-sm d-none d-md-inline-flex align-items-center gap-2" href="/">
+                <i class="fa-solid fa-rotate-left"></i>
+                Try Again
+            </a>
+        </div>
+    </nav>
+
+    <main class="py-5">
+        <div class="container">
+            <div class="row justify-content-center g-4">
+                <div class="col-12 col-lg-6">
+                    <section class="result-card result-card-{{ indicator_class }} text-white shadow-xl reveal">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="result-icon">
+                                <i class="fa-solid {{ 'fa-triangle-exclamation' if indicator_class == 'danger' else 'fa-circle-check' }}"></i>
                             </div>
-                            {% endfor %}
+                            <div>
+                                <h1 class="h3 fw-semibold mb-1">{{ prediction }}</h1>
+                                <p class="mb-0 opacity-75">Probability is calculated using our trained ML model.</p>
+                            </div>
                         </div>
-                    </div>
+                        <div class="progress-wrapper">
+                            {% set probability_percent = (probability | float * 100) %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-semibold">Probability</span>
+                                <span class="fw-semibold">{{ probability_percent | round(1) }}%</span>
+                            </div>
+                            <div class="progress gradient" role="progressbar" aria-label="Probability" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar" data-progress="{{ probability_percent | round(1) }}"></div>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <a href="{{ url_for('index') }}" class="btn btn-light btn-soft w-100">
+                                <i class="fa-solid fa-arrow-left me-2"></i>Try Again
+                            </a>
+                        </div>
+                    </section>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <section class="glass-card p-4 p-lg-5 shadow-xl reveal">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="summary-icon">
+                                <i class="fa-solid fa-table-list"></i>
+                            </div>
+                            <div>
+                                <h2 class="h4 fw-semibold mb-1">Submitted Measurements</h2>
+                                <p class="text-muted mb-0">Review the inputs that were used for this prediction.</p>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-borderless align-middle mb-0">
+                                <tbody>
+                                    {% for feature in feature_names %}
+                                    <tr>
+                                        <th scope="row" class="text-muted small text-uppercase fw-semibold">{{ feature.replace('DiabetesPedigreeFunction', 'Diabetes Pedigree Function') }}</th>
+                                        <td class="fw-medium text-end">{{ values[feature] }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
-    </div>
-</section>
-<footer class="py-3 text-center bg-white border-top">
-    <div class="container">
-        <small class="text-muted">Stay healthy! Early detection makes a difference.</small>
-    </div>
-</footer>
+    </main>
+
+    <footer class="py-4 text-center text-muted small">
+        <div class="container">
+            Developed by adjierizqan ✨
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha512-E7h3fm6Y1Ry2wzB2EqFG5RZ7s27ZIz+fwFQ9TnT0PgQBJ38qRAjPR9UCeFVLtZL1NVr7Di1urN6UNNfGStccKA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
