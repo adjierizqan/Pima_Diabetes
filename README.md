@@ -3,7 +3,6 @@
 An end-to-end, production-ready machine learning system that predicts diabetes risk using the Pima Indians Diabetes dataset. The project covers data exploration, preprocessing, model training, evaluation, and deployment via a Flask web application.
 
 ## Project Structure
-
 ```
 .
 ├── app.py
