@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from model_training import ZERO_IMPUTED_COLUMNS, ZeroMedianImputer
@@ -15,4 +16,8 @@ def test_zero_median_imputer_replaces_zero_values():
 
     transformer = ZeroMedianImputer(columns=ZERO_IMPUTED_COLUMNS)
     transformed = transformer.fit_transform(data)
-    assert (transformed[ZERO_IMPUTED_COLUMNS] == transformed[ZERO_IMPUTED_COLUMNS].iloc[1]).iloc[0].all()
+    expected = data[ZERO_IMPUTED_COLUMNS].replace(0, pd.NA).median()
+    np.testing.assert_allclose(
+        transformed.loc[0, ZERO_IMPUTED_COLUMNS].astype(float),
+        expected.astype(float),
+    )
