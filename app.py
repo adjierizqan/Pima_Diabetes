@@ -1,6 +1,7 @@
 """Flask application for serving diabetes predictions."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import joblib
@@ -60,7 +61,7 @@ def load_artifacts():
 scaler, model = load_artifacts()
 
 app = Flask(__name__)
-app.secret_key = "pima-diabetes-secret-key"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "development-only-secret")
 
 
 @app.route("/")

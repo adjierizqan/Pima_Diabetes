@@ -29,12 +29,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 
-try:  # XGBoost is optional during import time for faster CI feedback
+try:  # Native loading can fail even when the Python package is installed.
     from xgboost import XGBClassifier
-except ImportError as exc:  # pragma: no cover - handled gracefully at runtime
-    raise SystemExit(
-        "xgboost is required for this project. Please install it via `pip install xgboost`."
-    ) from exc
+except Exception:  # pragma: no cover - depends on the host's native runtime
+    XGBClassifier = None
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -208,7 +206,7 @@ def build_preprocessor(feature_names: Iterable[str]) -> Pipeline:
 
 
 def create_model_candidates() -> Dict[str, Tuple[BaseEstimator, Dict[str, Iterable[float]]]]:
-    return {
+    candidates = {
         "Logistic Regression": (
             LogisticRegression(max_iter=1000),
             {
@@ -223,20 +221,6 @@ def create_model_candidates() -> Dict[str, Tuple[BaseEstimator, Dict[str, Iterab
                 "classifier__n_estimators": [100, 200],
                 "classifier__max_depth": [None, 5, 10],
                 "classifier__min_samples_split": [2, 5],
-            },
-        ),
-        "XGBoost": (
-            XGBClassifier(
-                objective="binary:logistic",
-                random_state=RANDOM_STATE,
-                eval_metric="logloss",
-                use_label_encoder=False,
-                n_estimators=200,
-            ),
-            {
-                "classifier__max_depth": [3, 4, 5],
-                "classifier__learning_rate": [0.05, 0.1, 0.2],
-                "classifier__subsample": [0.8, 1.0],
             },
         ),
         "Support Vector Machine": (
@@ -255,6 +239,26 @@ def create_model_candidates() -> Dict[str, Tuple[BaseEstimator, Dict[str, Iterab
             },
         ),
     }
+
+    if XGBClassifier is not None:
+        candidates["XGBoost"] = (
+            XGBClassifier(
+                objective="binary:logistic",
+                random_state=RANDOM_STATE,
+                eval_metric="logloss",
+                use_label_encoder=False,
+                n_estimators=200,
+            ),
+            {
+                "classifier__max_depth": [3, 4, 5],
+                "classifier__learning_rate": [0.05, 0.1, 0.2],
+                "classifier__subsample": [0.8, 1.0],
+            },
+        )
+    else:
+        logging.warning("XGBoost is unavailable; continuing with scikit-learn candidates.")
+
+    return candidates
 
 
 def evaluate_model(
