@@ -47,7 +47,8 @@ PROCESSED_TRAIN_PATH = Path("data/processed_train.csv")
 PROCESSED_TEST_PATH = Path("data/processed_test.csv")
 SCALER_PATH = Path("scaler.pkl")
 MODEL_PATH = Path("best_model.pkl")
-METRICS_PATH = REPORTS_DIR / "model_performance.csv"
+CV_SELECTION_PATH = REPORTS_DIR / "cv_selection.csv"
+HOLDOUT_METRICS_PATH = REPORTS_DIR / "holdout_performance.csv"
 SUMMARY_PATH = REPORTS_DIR / "summary_statistics.csv"
 MISSING_PATH = REPORTS_DIR / "missing_values.csv"
 ZERO_ANALYSIS_PATH = REPORTS_DIR / "zero_value_analysis.csv"
@@ -102,7 +103,7 @@ class ZeroMedianImputer(BaseEstimator, TransformerMixin):
 @dataclass
 class ModelResult:
     name: str
-    metrics: Dict[str, float]
+    cv_f1: float
     best_params: Dict[str, float]
     estimator: Pipeline
 
@@ -370,10 +371,9 @@ def train_models(X_train: pd.DataFrame, y_train: pd.Series, preprocessor: Column
         )
         grid_search.fit(X_train, y_train)
         best_pipeline: Pipeline = grid_search.best_estimator_
-        metrics = evaluate_model(name, best_pipeline, X_train, y_train)
         results[name] = ModelResult(
             name=name,
-            metrics=metrics,
+            cv_f1=float(grid_search.best_score_),
             best_params=grid_search.best_params_,
             estimator=best_pipeline,
         )
@@ -381,31 +381,22 @@ def train_models(X_train: pd.DataFrame, y_train: pd.Series, preprocessor: Column
     return results
 
 
-def evaluate_on_test(results: Dict[str, ModelResult], X_test: pd.DataFrame, y_test: pd.Series, feature_names: Iterable[str]) -> ModelResult:
-    records = []
-    best_result: ModelResult | None = None
-
-    for result in results.values():
-        metrics = evaluate_model(result.name, result.estimator, X_test, y_test)
-        records.append({"model": result.name, **metrics})
-        plot_confusion_matrix(result.name, result.estimator, X_test, y_test)
-        plot_roc_curve(result.name, result.estimator, X_test, y_test)
-        plot_feature_importance(result.name, result.estimator, feature_names)
-
-        if best_result is None or metrics["f1"] > best_result.metrics.get("f1", 0):
-            best_result = ModelResult(
-                name=result.name,
-                metrics=metrics,
-                best_params=result.best_params,
-                estimator=result.estimator,
-            )
-
-    performance_df = pd.DataFrame.from_records(records).sort_values(by="f1", ascending=False)
-    performance_df.to_csv(METRICS_PATH, index=False)
-
-    assert best_result is not None, "At least one model should be trained."
-    logging.info("Best model selected: %s with F1-score %.3f", best_result.name, best_result.metrics["f1"])
+def select_best_model(results: Dict[str, ModelResult]) -> ModelResult:
+    if not results:
+        raise ValueError("At least one model should be trained.")
+    best_result = max(results.values(), key=lambda result: result.cv_f1)
+    logging.info("Model selected by training CV: %s with mean F1 %.3f", best_result.name, best_result.cv_f1)
     return best_result
+
+
+def evaluate_on_test(result: ModelResult, X_test: pd.DataFrame, y_test: pd.Series, feature_names: Iterable[str]) -> Dict[str, float]:
+    metrics = evaluate_model(result.name, result.estimator, X_test, y_test)
+    pd.DataFrame([{"model": result.name, **metrics}]).to_csv(HOLDOUT_METRICS_PATH, index=False)
+    plot_confusion_matrix(result.name, result.estimator, X_test, y_test)
+    plot_roc_curve(result.name, result.estimator, X_test, y_test)
+    plot_feature_importance(result.name, result.estimator, feature_names)
+    logging.info("Final holdout F1 for %s: %.3f", result.name, metrics["f1"])
+    return metrics
 
 
 def save_artifacts(best_result: ModelResult) -> None:
@@ -448,7 +439,12 @@ def main(verbose: bool = False) -> None:
     preprocessor = build_preprocessor(feature_names)
 
     results = train_models(X_train, y_train, preprocessor)
-    best_result = evaluate_on_test(results, X_test, y_test, feature_names)
+    best_result = select_best_model(results)
+    pd.DataFrame([
+        {"model": result.name, "cv_f1": result.cv_f1}
+        for result in results.values()
+    ]).to_csv(CV_SELECTION_PATH, index=False)
+    evaluate_on_test(best_result, X_test, y_test, feature_names)
 
     save_artifacts(best_result)
 
