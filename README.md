@@ -32,11 +32,16 @@ Open http://127.0.0.1:5000/. Existing model artifacts are also included in the r
 
 - Data exploration and preprocessing, including handling zero values in selected fields
 - Logistic Regression, Random Forest, XGBoost, SVM and KNN comparisons
+- Training-only cross-validation for model selection, followed by holdout evaluation of the selected model
 - Saved evaluation results, confusion matrices, ROC curves and optional SHAP plots
 - A Flask form for entering features and viewing the model's classification
-- Basic tests in `tests/`, runnable with `pytest`
+- Basic tests in `tests/`, runnable with `python -m pytest` (requires pytest in addition to the runtime dependencies)
 
 Dataset: [Pima Indians Diabetes](https://www.kaggle.com/datasets/uciml/pima-indians-diabetes-database).
+
+Each training run creates a unique `reports/runs/run-*/` directory containing `cv_selection.csv`, `holdout_performance.csv`, plots, processed data and new model artifacts. The run directory is logged at startup. Historical outputs and earlier runs are preserved; plots from other runs are not included in the new evaluation. The Flask demo continues using the existing root-level model artifacts until they are explicitly replaced.
+
+The checked-in `reports/model_performance.csv`, model artifacts and plots are historical outputs from the earlier workflow, which used test-set F1 to select the model. They have not been regenerated or independently validated by this correction. The existing holdout has already informed model selection; an independent future assessment needs fresh evaluation data.
 
 ## Limitations
 
