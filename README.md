@@ -20,11 +20,21 @@ To retrain the models and generate evaluation plots:
 python model_training.py --verbose
 ```
 
-To start the Flask demo:
+To start the Flask demo, set a private session secret first (macOS/Linux):
 
 ```bash
+export FLASK_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 python app.py
 ```
+
+On PowerShell:
+
+```powershell
+$env:FLASK_SECRET_KEY = python -c "import secrets; print(secrets.token_urlsafe(32))"
+python app.py
+```
+
+Use the same securely generated secret across processes if you deploy the app. Do not commit it to Git. The application refuses to start if `FLASK_SECRET_KEY` is missing or shorter than 32 characters.
 
 Open http://127.0.0.1:5000/. Existing model artifacts are also included in the repository.
 
