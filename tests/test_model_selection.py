@@ -57,7 +57,6 @@ def test_real_cv_selection_ignores_better_holdout_challenger(monkeypatch, tmp_pa
         "tree": (DecisionTreeClassifier(random_state=42), {"classifier__max_depth": [1, 2]}),
         "constant": (DummyClassifier(strategy="constant", constant=1), {}),
     })
-    monkeypatch.setattr(training, "HOLDOUT_METRICS_PATH", tmp_path / "holdout_performance.csv")
     for name in ["plot_confusion_matrix", "plot_roc_curve", "plot_feature_importance"]:
         monkeypatch.setattr(training, name, Mock())
 
@@ -70,7 +69,7 @@ def test_real_cv_selection_ignores_better_holdout_challenger(monkeypatch, tmp_pa
     # A deliberately reversed holdout favors the CV loser. This comparison
     # exists only in the test; the production workflow evaluates the winner.
     challenger_metrics = training.evaluate_model("constant", results["constant"].estimator, X_test, y_test)
-    winner_metrics = training.evaluate_on_test(winner, X_test, y_test, X_test.columns)
+    winner_metrics = training.evaluate_on_test(winner, X_test, y_test, X_test.columns, tmp_path)
     assert challenger_metrics["f1"] > winner_metrics["f1"]
     assert training.select_best_model(results) is winner
     assert pd.read_csv(tmp_path / "holdout_performance.csv")["model"].tolist() == ["tree"]
@@ -88,9 +87,7 @@ def test_main_keeps_cv_winner_regardless_of_holdout_score(monkeypatch, tmp_path,
     historical_report = tmp_path / "model_performance.csv"
     historical_report.write_text("historical results\n")
 
-    monkeypatch.setattr(training, "CV_SELECTION_PATH", tmp_path / "cv_selection.csv")
-    monkeypatch.setattr(training, "HOLDOUT_METRICS_PATH", tmp_path / "holdout_performance.csv")
-    monkeypatch.setattr(training, "ensure_directories", Mock())
+    monkeypatch.setattr(training, "ensure_directories", Mock(return_value=tmp_path))
     monkeypatch.setattr(training, "load_data", Mock(return_value=Mock()))
     monkeypatch.setattr(training, "perform_eda", Mock())
     monkeypatch.setattr(training, "split_data", Mock(return_value=(X_train, X_test, y_train, y_test)))
@@ -125,10 +122,15 @@ def test_main_keeps_cv_winner_regardless_of_holdout_score(monkeypatch, tmp_path,
     assert train.call_args.args[0] is X_train
     assert train.call_args.args[1] is y_train
     evaluation.assert_called_once()
-    save.assert_called_once_with(winner)
+    save.assert_called_once_with(winner, tmp_path)
     for plot in plots:
         plot.assert_called_once()
         assert plot.call_args.args[:2] == ("winner", winner.estimator)
+        assert plot.call_args.args[-1] == tmp_path
+    training.perform_eda.assert_called_once()
+    assert training.perform_eda.call_args.args[-1] == tmp_path
+    assert training.save_processed_data.call_args.args[-1] == tmp_path
+    assert training.generate_shap_summary.call_args.args[-1] == tmp_path
     cv_report = pd.read_csv(tmp_path / "cv_selection.csv")
     assert cv_report.to_dict("records") == [
         {"model": "loser", "cv_f1": 0.6},

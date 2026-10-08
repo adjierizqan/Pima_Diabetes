@@ -39,7 +39,7 @@ Open http://127.0.0.1:5000/. Existing model artifacts are also included in the r
 
 Dataset: [Pima Indians Diabetes](https://www.kaggle.com/datasets/uciml/pima-indians-diabetes-database).
 
-New training runs write candidate mean CV F1 scores to `reports/cv_selection.csv` and the selected model's final test metrics to `reports/holdout_performance.csv`. Running training also replaces saved model artifacts and plots.
+Each training run creates a unique `reports/runs/run-*/` directory containing `cv_selection.csv`, `holdout_performance.csv`, plots, processed data and new model artifacts. The run directory is logged at startup. Historical outputs and earlier runs are preserved; plots from other runs are not included in the new evaluation. The Flask demo continues using the existing root-level model artifacts until they are explicitly replaced.
 
 The checked-in `reports/model_performance.csv`, model artifacts and plots are historical outputs from the earlier workflow, which used test-set F1 to select the model. They have not been regenerated or independently validated by this correction. The existing holdout has already informed model selection; an independent future assessment needs fresh evaluation data.
 

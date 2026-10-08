@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Tuple
@@ -42,20 +43,6 @@ except ImportError as exc:  # pragma: no cover - handled gracefully at runtime
 
 DATA_PATH = Path("data/diabetes.csv")
 REPORTS_DIR = Path("reports")
-ARTIFACTS_DIR = Path(".")
-PROCESSED_TRAIN_PATH = Path("data/processed_train.csv")
-PROCESSED_TEST_PATH = Path("data/processed_test.csv")
-SCALER_PATH = Path("scaler.pkl")
-MODEL_PATH = Path("best_model.pkl")
-CV_SELECTION_PATH = REPORTS_DIR / "cv_selection.csv"
-HOLDOUT_METRICS_PATH = REPORTS_DIR / "holdout_performance.csv"
-SUMMARY_PATH = REPORTS_DIR / "summary_statistics.csv"
-MISSING_PATH = REPORTS_DIR / "missing_values.csv"
-ZERO_ANALYSIS_PATH = REPORTS_DIR / "zero_value_analysis.csv"
-ROC_DIR = REPORTS_DIR / "roc_curves"
-CONFUSION_DIR = REPORTS_DIR / "confusion_matrices"
-FEATURE_IMPORTANCE_DIR = REPORTS_DIR / "feature_importance"
-SHAP_DIR = REPORTS_DIR / "shap"
 
 ZERO_IMPUTED_COLUMNS = [
     "Glucose",
@@ -121,15 +108,14 @@ def configure_logging(verbose: bool) -> None:
     )
 
 
-def ensure_directories() -> None:
-    for directory in [
-        REPORTS_DIR,
-        ROC_DIR,
-        CONFUSION_DIR,
-        FEATURE_IMPORTANCE_DIR,
-        SHAP_DIR,
-    ]:
-        directory.mkdir(parents=True, exist_ok=True)
+def ensure_directories() -> Path:
+    runs_dir = REPORTS_DIR / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(tempfile.mkdtemp(prefix="run-", dir=runs_dir))
+    for name in ["roc_curves", "confusion_matrices", "feature_importance", "shap"]:
+        (output_dir / name).mkdir()
+    logging.info("New run outputs: %s", output_dir)
+    return output_dir
 
 
 def load_data(path: Path = DATA_PATH) -> pd.DataFrame:
@@ -141,38 +127,38 @@ def load_data(path: Path = DATA_PATH) -> pd.DataFrame:
     return data
 
 
-def perform_eda(data: pd.DataFrame) -> None:
+def perform_eda(data: pd.DataFrame, output_dir: Path) -> None:
     logging.info("Performing exploratory data analysis")
     summary = data.describe()
-    summary.to_csv(SUMMARY_PATH)
+    summary.to_csv(output_dir / "summary_statistics.csv")
 
     missing = data.isna().sum()
-    missing.to_csv(MISSING_PATH, header=["missing_count"])
+    missing.to_csv(output_dir / "missing_values.csv", header=["missing_count"])
 
     zero_analysis = {
         column: int((data[column] == 0).sum())
         for column in data.columns if column != "Outcome"
     }
     zero_df = pd.DataFrame.from_dict(zero_analysis, orient="index", columns=["zero_count"])
-    zero_df.to_csv(ZERO_ANALYSIS_PATH)
+    zero_df.to_csv(output_dir / "zero_value_analysis.csv")
 
     ax_array = data.hist(bins=20, figsize=(12, 10))
     for ax in np.array(ax_array).flatten():
         ax.set_ylabel("Frequency")
     plt.tight_layout()
-    plt.savefig(REPORTS_DIR / "feature_histograms.png")
+    plt.savefig(output_dir / "feature_histograms.png")
     plt.close()
 
     pair_grid = sns.pairplot(data, hue="Outcome", diag_kind="hist")
     pair_grid.fig.suptitle("Feature Pairplot", y=1.02)
-    pair_grid.fig.savefig(REPORTS_DIR / "pairplot.png")
+    pair_grid.fig.savefig(output_dir / "pairplot.png")
     plt.close(pair_grid.fig)
 
     plt.figure(figsize=(10, 8))
     corr = data.corr()
     sns.heatmap(corr, annot=True, cmap="coolwarm", fmt=".2f")
     plt.tight_layout()
-    plt.savefig(REPORTS_DIR / "correlation_heatmap.png")
+    plt.savefig(output_dir / "correlation_heatmap.png")
     plt.close()
 
 
@@ -279,17 +265,17 @@ def evaluate_model(
     return metrics
 
 
-def plot_confusion_matrix(name: str, estimator: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> None:
+def plot_confusion_matrix(name: str, estimator: Pipeline, X_test: pd.DataFrame, y_test: pd.Series, output_dir: Path) -> None:
     cm = confusion_matrix(y_test, estimator.predict(X_test))
     disp = ConfusionMatrixDisplay(cm)
     disp.plot(cmap="Blues")
     plt.title(f"Confusion Matrix - {name}")
     plt.tight_layout()
-    plt.savefig(CONFUSION_DIR / f"{name.replace(' ', '_').lower()}_confusion_matrix.png")
+    plt.savefig(output_dir / "confusion_matrices" / f"{name.replace(' ', '_').lower()}_confusion_matrix.png")
     plt.close()
 
 
-def plot_roc_curve(name: str, estimator: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> None:
+def plot_roc_curve(name: str, estimator: Pipeline, X_test: pd.DataFrame, y_test: pd.Series, output_dir: Path) -> None:
     y_proba = estimator.predict_proba(X_test)[:, 1]
     fpr, tpr, _ = roc_curve(y_test, y_proba)
     roc_auc = auc(fpr, tpr)
@@ -303,11 +289,11 @@ def plot_roc_curve(name: str, estimator: Pipeline, X_test: pd.DataFrame, y_test:
     plt.title(f"Receiver Operating Characteristic - {name}")
     plt.legend(loc="lower right")
     plt.tight_layout()
-    plt.savefig(ROC_DIR / f"{name.replace(' ', '_').lower()}_roc.png")
+    plt.savefig(output_dir / "roc_curves" / f"{name.replace(' ', '_').lower()}_roc.png")
     plt.close()
 
 
-def plot_feature_importance(name: str, estimator: Pipeline, feature_names: Iterable[str]) -> None:
+def plot_feature_importance(name: str, estimator: Pipeline, feature_names: Iterable[str], output_dir: Path) -> None:
     classifier = estimator.named_steps["classifier"]
     if hasattr(classifier, "feature_importances_"):
         importances = classifier.feature_importances_
@@ -318,11 +304,11 @@ def plot_feature_importance(name: str, estimator: Pipeline, feature_names: Itera
         plt.title(f"Feature Importance - {name}")
         plt.xlabel("Importance")
         plt.tight_layout()
-        plt.savefig(FEATURE_IMPORTANCE_DIR / f"{name.replace(' ', '_').lower()}_feature_importance.png")
+        plt.savefig(output_dir / "feature_importance" / f"{name.replace(' ', '_').lower()}_feature_importance.png")
         plt.close()
 
 
-def generate_shap_summary(best_result: ModelResult, X_sample: pd.DataFrame) -> None:
+def generate_shap_summary(best_result: ModelResult, X_sample: pd.DataFrame, output_dir: Path) -> None:
     try:
         import shap
     except ImportError:  # pragma: no cover - optional dependency
@@ -344,7 +330,7 @@ def generate_shap_summary(best_result: ModelResult, X_sample: pd.DataFrame) -> N
         plt.figure()
         shap.summary_plot(shap_values, X_processed, feature_names=feature_names, show=False)
         plt.tight_layout()
-        plt.savefig(SHAP_DIR / "shap_summary.png")
+        plt.savefig(output_dir / "shap" / "shap_summary.png")
         plt.close()
     else:
         logging.info("Skipping SHAP summary: supported only for tree-based models in this pipeline.")
@@ -389,43 +375,43 @@ def select_best_model(results: Dict[str, ModelResult]) -> ModelResult:
     return best_result
 
 
-def evaluate_on_test(result: ModelResult, X_test: pd.DataFrame, y_test: pd.Series, feature_names: Iterable[str]) -> Dict[str, float]:
+def evaluate_on_test(result: ModelResult, X_test: pd.DataFrame, y_test: pd.Series, feature_names: Iterable[str], output_dir: Path) -> Dict[str, float]:
     metrics = evaluate_model(result.name, result.estimator, X_test, y_test)
-    pd.DataFrame([{"model": result.name, **metrics}]).to_csv(HOLDOUT_METRICS_PATH, index=False)
-    plot_confusion_matrix(result.name, result.estimator, X_test, y_test)
-    plot_roc_curve(result.name, result.estimator, X_test, y_test)
-    plot_feature_importance(result.name, result.estimator, feature_names)
+    pd.DataFrame([{"model": result.name, **metrics}]).to_csv(output_dir / "holdout_performance.csv", index=False)
+    plot_confusion_matrix(result.name, result.estimator, X_test, y_test, output_dir)
+    plot_roc_curve(result.name, result.estimator, X_test, y_test, output_dir)
+    plot_feature_importance(result.name, result.estimator, feature_names, output_dir)
     logging.info("Final holdout F1 for %s: %.3f", result.name, metrics["f1"])
     return metrics
 
 
-def save_artifacts(best_result: ModelResult) -> None:
+def save_artifacts(best_result: ModelResult, output_dir: Path) -> None:
     logging.info("Saving model artifacts")
     best_pipeline = best_result.estimator
     preprocessor = best_pipeline.named_steps["preprocessor"]
     classifier = best_pipeline.named_steps["classifier"]
-    joblib.dump(preprocessor, SCALER_PATH)
-    joblib.dump(classifier, MODEL_PATH)
-    logging.info("Artifacts saved to %s and %s", SCALER_PATH, MODEL_PATH)
+    joblib.dump(preprocessor, output_dir / "scaler.pkl")
+    joblib.dump(classifier, output_dir / "best_model.pkl")
+    logging.info("Artifacts saved to %s and %s", output_dir / "scaler.pkl", output_dir / "best_model.pkl")
 
 
-def save_processed_data(preprocessor: ColumnTransformer, X_train: pd.DataFrame, X_test: pd.DataFrame) -> None:
+def save_processed_data(preprocessor: ColumnTransformer, X_train: pd.DataFrame, X_test: pd.DataFrame, output_dir: Path) -> None:
     logging.info("Saving processed datasets")
     X_train_processed = preprocessor.fit_transform(X_train)
     X_test_processed = preprocessor.transform(X_test)
 
     train_df = pd.DataFrame(X_train_processed, columns=preprocessor.get_feature_names_out())
     test_df = pd.DataFrame(X_test_processed, columns=preprocessor.get_feature_names_out())
-    train_df.to_csv(PROCESSED_TRAIN_PATH, index=False)
-    test_df.to_csv(PROCESSED_TEST_PATH, index=False)
+    train_df.to_csv(output_dir / "processed_train.csv", index=False)
+    test_df.to_csv(output_dir / "processed_test.csv", index=False)
 
 
 def main(verbose: bool = False) -> None:
     configure_logging(verbose)
-    ensure_directories()
+    output_dir = ensure_directories()
 
     data = load_data()
-    perform_eda(data)
+    perform_eda(data, output_dir)
 
     X_train, X_test, y_train, y_test = split_data(data)
     feature_names = X_train.columns
@@ -433,7 +419,7 @@ def main(verbose: bool = False) -> None:
     preprocessor = build_preprocessor(feature_names)
 
     # Save processed datasets for reproducibility (use a temporary fitted copy)
-    save_processed_data(preprocessor, X_train, X_test)
+    save_processed_data(preprocessor, X_train, X_test, output_dir)
 
     # Rebuild an unfitted preprocessor for model training to avoid reusing fitted state
     preprocessor = build_preprocessor(feature_names)
@@ -443,16 +429,16 @@ def main(verbose: bool = False) -> None:
     pd.DataFrame([
         {"model": result.name, "cv_f1": result.cv_f1}
         for result in results.values()
-    ]).to_csv(CV_SELECTION_PATH, index=False)
-    evaluate_on_test(best_result, X_test, y_test, feature_names)
+    ]).to_csv(output_dir / "cv_selection.csv", index=False)
+    evaluate_on_test(best_result, X_test, y_test, feature_names, output_dir)
 
-    save_artifacts(best_result)
+    save_artifacts(best_result, output_dir)
 
     # Generate SHAP summary using a small sample of the test set
     sample_size = min(100, len(X_test))
     sample_indices = np.random.RandomState(RANDOM_STATE).choice(len(X_test), size=sample_size, replace=False)
     X_sample = X_test.iloc[sample_indices]
-    generate_shap_summary(best_result, X_sample)
+    generate_shap_summary(best_result, X_sample, output_dir)
 
 
 if __name__ == "__main__":
