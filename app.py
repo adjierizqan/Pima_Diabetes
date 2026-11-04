@@ -1,6 +1,7 @@
 """Flask application for serving diabetes predictions."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import joblib
@@ -60,7 +61,12 @@ def load_artifacts():
 scaler, model = load_artifacts()
 
 app = Flask(__name__)
-app.secret_key = "pima-diabetes-secret-key"
+secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not secret_key or len(secret_key) < 32:
+    raise RuntimeError(
+        "Set FLASK_SECRET_KEY to a random value of at least 32 characters before starting the app."
+    )
+app.secret_key = secret_key
 
 
 @app.route("/")
